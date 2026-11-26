@@ -9,34 +9,42 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@v4
         with:
           cmdline-tools-version: 15859902
 
       - name: Install Android SDK
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Extract Bird Dash
+      - name: Extract game
         run: unzip -o BirdDash-project.zip
 
-      - name: Build Bird Dash APK
+      - name: Fix score system
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("app/src/main/java/com/birddash/MainActivity.java")
+          s = p.read_text()
+          s = s.replace("int score=0,best=0;", "float score=0; int best=0;")
+          s = s.replace("score+=(int)(dt*10);", "score+=dt*10f;")
+          s = s.replace("if(score>best){best=score;", "if((int)score>best){best=(int)score;")
+          s = s.replace('"SCORE "+score', '"SCORE "+(int)score')
+          p.write_text(s)
+          PY
+
+      - name: Build APK
         run: gradle --no-daemon assembleDebug
 
       - name: Upload APK
@@ -44,5 +52,4 @@ jobs:
         with:
           name: BirdDash-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
           
